@@ -89,7 +89,16 @@ jobs:
       - name: Disable static Rust bridge outputs
         shell: bash
         run: |
-          sed -i 's/["cdylib", "staticlib", "rlib"]/["cdylib"]/g' Cargo.toml
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("Cargo.toml")
+          s = p.read_text()
+          old = '["cdylib", "staticlib", "rlib"]'
+          new = '["cdylib"]'
+          if old not in s:
+              raise SystemExit("Expected crate-type list not found in Cargo.toml")
+          p.write_text(s.replace(old, new, 1))
+          PY
 
       - name: Restore generated bridge files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
