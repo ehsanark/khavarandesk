@@ -1,0 +1,228 @@
+name: Build Khavaran Desk Jetson ARM64
+
+permissions:
+  contents: read
+
+env:
+  RUST_VERSION: "1.75"
+  FLUTTER_VERSION: "3.24.5"
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+  VCPKG_COMMIT_ID: "9e593bb18ea69cc5095e012465dcd675a822ed0d"
+  VCPKG_CMAKE_VERSION: "4.3.0"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/jetson.yml"
+      - ".github/workflows/bridge.yml"
+      - "build/bootstrap.py"
+      - "build/khavaran.patch"
+      - "build/identity.patch"
+      - "build/icon.b64"
+
+jobs:
+  generate-bridge:
+    uses: ./.github/workflows/bridge.yml
+
+  build-jetson-arm64:
+    name: Jetson Orin Nano ARM64 Debian package
+    needs:
+      - generate-bridge
+    runs-on: ubuntu-22.04-arm
+    timeout-minutes: 180
+
+    steps:
+      - name: Export GitHub Actions cache environment variables
+        uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - name: Maximize build space
+        shell: bash
+        run: |
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf /usr/local/lib/android || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo apt-get update -y
+          sudo apt-get install -y nasm
+
+      - name: Checkout Khavaran build repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Load pinned RustDesk source and Khavaran changes
+        shell: bash
+        run: python build/bootstrap.py
+
+      - name: Set swap space
+        uses: pierotofy/set-swap-space@49819abfb41bd9b44fb781159c033dba90353a7c
+        with:
+          swap-size-gb: 12
+
+      - name: Show disk and memory
+        shell: bash
+        run: |
+          df -h
+          free -m
+          uname -a
+          dpkg --print-architecture
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: "${{ env.RUST_VERSION }}"
+          targets: aarch64-unknown-linux-gnu
+          components: rustfmt
+
+      - name: Save Rust toolchain version
+        shell: bash
+        run: |
+          RUST_TOOLCHAIN_VERSION="$(cargo --version | awk '{print $2}')"
+          echo "RUST_TOOLCHAIN_VERSION=$RUST_TOOLCHAIN_VERSION" >> "$GITHUB_ENV"
+
+      - name: Disable static Rust bridge outputs
+        shell: bash
+        run: |
+          sed -i 's/["cdylib", "staticlib", "rlib"]/["cdylib"]/g' Cargo.toml
+
+      - name: Restore generated bridge files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: bridge-artifact
+          path: ./
+
+      - name: Install CMake for ARM64 vcpkg
+        shell: bash
+        run: |
+          python3 -m pip install --user "cmake==${{ env.VCPKG_CMAKE_VERSION }}"
+          user_base="$(python3 -m site --user-base)"
+          "$user_base/bin/cmake" --version
+          echo "$user_base/bin" >> "$GITHUB_PATH"
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@b1a0dd252f06b9e25b3c022a9a03bd7a427fb6a2
+        with:
+          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgGitCommitId: "${{ env.VCPKG_COMMIT_ID }}"
+          doNotCache: false
+
+      - name: Install ARM64 vcpkg dependencies
+        shell: bash
+        run: |
+          sudo apt-get install -y libva-dev
+          if ! "$VCPKG_ROOT/vcpkg"             install             --triplet arm64-linux             --x-install-root="$VCPKG_ROOT/installed"; then
+            find "$VCPKG_ROOT/" -name "*.log" | while read -r logfile; do
+              echo "$logfile:"
+              echo "======"
+              cat "$logfile"
+              echo "======"
+            done
+            exit 1
+          fi
+          head -n 100 "$VCPKG_ROOT/buildtrees/ffmpeg/build-arm64-linux-rel-out.log" || true
+
+      - name: Build Khavaran Desk ARM64
+        id: build
+        uses: rustdesk-org/run-on-arch-action@d3fcfbb632b84cf7f6bc772bfaaa2c2f4f8789a8
+        with:
+          arch: aarch64
+          distro: ubuntu18.04
+          githubToken: "${{ github.token }}"
+          setup: |
+            ls -la "${PWD}"
+            ls -la /opt/artifacts/vcpkg/installed
+          dockerRunArgs: |
+            --volume "${PWD}:/workspace"
+            --volume "/opt/artifacts:/opt/artifacts"
+          shell: /bin/bash
+          install: |
+            apt-get update -y
+            apt-get install -y               build-essential               clang               cmake               curl               gcc               git               g++               libayatana-appindicator3-dev               libasound2-dev               libclang-10-dev               libgstreamer1.0-dev               libgstreamer-plugins-base1.0-dev               libgtk-3-dev               libpulse-dev               libva-dev               libxcb-randr0-dev               libxcb-shape0-dev               libxcb-xfixes0-dev               libxdo-dev               libxfixes-dev               llvm-10-dev               nasm               ninja-build               pkg-config               python3               unzip               wget               xz-utils               libssl-dev
+            apt-get remove -y libopus-dev || true
+          run: |
+            set -euxo pipefail
+            git config --global --add safe.directory "*"
+
+            pushd /opt
+            wget -O rust.tar.gz "https://static.rust-lang.org/dist/rust-${{ env.RUST_TOOLCHAIN_VERSION }}-aarch64-unknown-linux-gnu.tar.gz"
+            tar -zxf rust.tar.gz
+            rm rust.tar.gz
+            cd "rust-${{ env.RUST_TOOLCHAIN_VERSION }}-aarch64-unknown-linux-gnu"
+            ./install.sh
+            cd /
+            rm -rf "/opt/rust-${{ env.RUST_TOOLCHAIN_VERSION }}-aarch64-unknown-linux-gnu"
+
+            mkdir -p ~/.cargo
+            cat > ~/.cargo/config <<'EOF'
+            [source.crates-io]
+            registry = 'https://github.com/rust-lang/crates.io-index'
+            EOF
+
+            pushd /workspace
+            export VCPKG_ROOT=/opt/artifacts/vcpkg
+            cargo build --locked --lib --jobs 3 --features hwcodec,flutter,unix-file-copy-paste --release
+            rm -rf target/release/deps target/release/build
+            rm -rf ~/.cargo
+
+            pushd /opt
+            wget "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${{ env.FLUTTER_VERSION }}-stable.tar.xz"
+            tar xf "flutter_linux_${{ env.FLUTTER_VERSION }}-stable.tar.xz"
+
+            git clone https://github.com/sony/flutter-elinux.git
+            pushd flutter-elinux
+            git fetch
+            git reset --hard "${{ env.FLUTTER_VERSION }}"
+            bin/flutter-elinux doctor -v
+            bin/flutter-elinux precache --linux
+            popd
+
+            cp -R flutter/bin/cache/artifacts/engine/linux-x64/shader_lib               flutter-elinux/flutter/bin/cache/artifacts/engine/linux-arm64
+            rm -rf flutter
+
+            if [[ "${{ env.FLUTTER_VERSION }}" == "3.24.5" ]]; then
+              pushd /opt/flutter-elinux/flutter
+              git apply /workspace/.github/patches/flutter_3.24.4_dropdown_menu_enableFilter.diff
+              popd
+            fi
+
+            pushd /workspace
+            export PATH=/opt/flutter-elinux/bin:$PATH
+            export CARGO_INCREMENTAL=0
+            export DEB_ARCH=arm64
+
+            sed -i "s/flutter build linux --release/flutter-elinux build linux --verbose/g" ./build.py
+            sed -i "s/x64/release/arm64/release/g" ./build.py
+
+            python3 ./build.py --flutter --skip-cargo
+
+            shopt -s nullglob
+            debs=(rustdesk*??.deb)
+            if [[ ${#debs[@]} -ne 1 ]]; then
+              echo "Expected exactly one Debian package, found ${#debs[@]}: ${debs[*]-none}"
+              exit 1
+            fi
+            mv "${debs[0]}" "rustdesk-jetson-aarch64.deb"
+
+      - name: Prepare branded Jetson installer
+        shell: bash
+        run: |
+          test -f rustdesk-jetson-aarch64.deb
+          cp rustdesk-jetson-aarch64.deb KhavaranDesk-Jetson-Orin-Nano-arm64.deb
+          sha256sum KhavaranDesk-Jetson-Orin-Nano-arm64.deb > KhavaranDesk-Jetson-Orin-Nano-arm64.deb.sha256
+          dpkg-deb --info KhavaranDesk-Jetson-Orin-Nano-arm64.deb
+          ls -lh KhavaranDesk-Jetson-Orin-Nano-arm64.deb*
+
+      - name: Upload Jetson installer
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: KhavaranDesk-Jetson-Orin-Nano-arm64
+          path: |
+            KhavaranDesk-Jetson-Orin-Nano-arm64.deb
+            KhavaranDesk-Jetson-Orin-Nano-arm64.deb.sha256
+          if-no-files-found: error
