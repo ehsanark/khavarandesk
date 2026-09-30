@@ -206,7 +206,7 @@ jobs:
             export DEB_ARCH=arm64
 
             sed -i "s/flutter build linux --release/flutter-elinux build linux --verbose/g" ./build.py
-            sed -i "s/x64/release/arm64/release/g" ./build.py
+            sed -i 's#x64/release#arm64/release#g' ./build.py
 
             python3 ./build.py --flutter --skip-cargo
 
