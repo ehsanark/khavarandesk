@@ -31,4 +31,13 @@ jobs:
   push:
     branches:
     - main
+    paths:
+    - '.github/workflows/flutter-build.yml'
+    - '.github/workflows/bridge.yml'
+    - '.github/workflows/third-party-RustDeskTempTopMostWindow.yml'
+    - 'build/bootstrap.py'
+    - 'build/khavaran.patch'
+    - 'build/identity.patch'
+    - 'build/icon.b64'
+    - 'build/windows-installer.nsi'
   workflow_dispatch: {}
