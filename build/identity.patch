@@ -1,0 +1,74 @@
+diff --git a/src/config.rs b/src/config.rs
+index 6fe1004..2938145 100644
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -69,7 +69,7 @@ lazy_static::lazy_static! {
+     static ref ONLINE: Mutex<HashMap<String, i64>> = Default::default();
+     pub static ref PROD_RENDEZVOUS_SERVER: RwLock<String> = RwLock::new("".to_owned());
+     pub static ref EXE_RENDEZVOUS_SERVER: RwLock<String> = Default::default();
+-    pub static ref APP_NAME: RwLock<String> = RwLock::new("RustDesk".to_owned());
++    pub static ref APP_NAME: RwLock<String> = RwLock::new("KhavaranDesk".to_owned());
+     static ref KEY_PAIR: Mutex<Option<KeyPair>> = Default::default();
+     static ref USER_DEFAULT_CONFIG: RwLock<(UserDefaultConfig, Instant)> = RwLock::new((UserDefaultConfig::load(), Instant::now()));
+     pub static ref NEW_STORED_PEER_CONFIG: Mutex<HashSet<String>> = Default::default();
+@@ -114,7 +114,7 @@ const CHARS: &[char] = &[
+     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+ ];
+ 
+-pub const RENDEZVOUS_SERVERS: &[&str] = &["rs-ny.rustdesk.com"];
++pub const RENDEZVOUS_SERVERS: &[&str] = &["127.0.0.1"];
+ pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
+ 
+ pub const RENDEZVOUS_PORT: i32 = 21116;
+@@ -1055,17 +1055,7 @@ impl Config {
+ 
+         #[cfg(not(any(target_os = "android", target_os = "ios")))]
+         {
+-            let mut id = 0u32;
+-            if let Ok(Some(ma)) = mac_address::get_mac_address() {
+-                for x in &ma.bytes()[2..] {
+-                    id = (id << 8) | (*x as u32);
+-                }
+-                id &= 0x1FFFFFFF;
+-                log::info!("Generated id {}", id);
+-                Some(id.to_string())
+-            } else {
+-                None
+-            }
++            Some(rand::thread_rng().gen_range(2_000_000_000u32..2_100_000_000u32).to_string())
+         }
+     }
+ 
+@@ -1277,7 +1267,7 @@ impl Config {
+         // to-do: how about if one ip register a lot of ids?
+         let id = Self::get_id();
+         let mut rng = rand::thread_rng();
+-        let new_id = rng.gen_range(1_000_000_000..2_000_000_000).to_string();
++        let new_id = rng.gen_range(2_000_000_000u32..2_100_000_000u32).to_string();
+         Config::set_id(&new_id);
+         log::info!("id updated from {} to {}", id, new_id);
+     }
+@@ -3678,3 +3668,23 @@ mod tests {
+         assert_ne!(non_service_root, non_service_user);
+     }
+ }
++
++#[cfg(all(test, not(any(target_os = "android", target_os = "ios"))))]
++mod khavaran_identity_tests {
++    use super::*;
++
++    #[test]
++    fn khavaran_automatic_ids_have_a_separate_numeric_range() {
++        for _ in 0..256 {
++            let id: u32 = Config::get_auto_id().unwrap().parse().unwrap();
++            assert!((2_000_000_000..2_100_000_000).contains(&id));
++            assert!(id > 0x1FFFFFFF);
++        }
++    }
++
++    #[test]
++    fn khavaran_has_an_independent_config_namespace_and_no_public_default() {
++        assert_eq!(APP_NAME.read().unwrap().as_str(), "KhavaranDesk");
++        assert_eq!(RENDEZVOUS_SERVERS, &["127.0.0.1"]);
++    }
++}

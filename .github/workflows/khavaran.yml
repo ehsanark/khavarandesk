@@ -1,0 +1,34 @@
+name: Build Khavaran Desk Windows
+permissions:
+  contents: read
+jobs:
+  build:
+    uses: ./.github/workflows/flutter-build.yml
+    with:
+      upload-artifact: true
+      upload-tag: khavaran-build
+  package-windows:
+    needs: build
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
+      with:
+        name: rustdesk-unsigned-windows-x86_64
+        path: build/windows-bundle
+    - name: Install NSIS
+      run: choco install nsis --yes --no-progress
+    - name: Build Khavaran installer
+      shell: pwsh
+      working-directory: build
+      run: '& "${env:ProgramFiles(x86)}\NSIS\makensis.exe" windows-installer.nsi'
+    - uses: actions/upload-artifact@v4
+      with:
+        name: KhavaranDesk-Windows-Setup
+        path: build/KhavaranDesk-Setup-x64.exe
+        if-no-files-found: error
+'on':
+  push:
+    branches:
+    - main
+  workflow_dispatch: {}
