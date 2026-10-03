@@ -25,3 +25,6 @@ with tempfile.TemporaryDirectory(prefix='khavaran-upstream-') as td:
  (root/'flutter/assets').mkdir(exist_ok=True)
  (root/'flutter/assets/icon.png').write_bytes(base64.b64decode((root/'build/icon.b64').read_text()))
 print('Loaded pinned RustDesk source with Khavaran Desk changes')
+
+
+subprocess.run(['python', 'build/redesign.py'], cwd=root, check=True)
