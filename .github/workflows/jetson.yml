@@ -28,6 +28,15 @@ on:
 
   pull_request:
     branches: [main]
+    paths:
+      - 'build/bootstrap.py'
+      - 'build/redesign.py'
+      - 'build/ui/**'
+      - 'build/fonts/**'
+      - 'build/*.patch'
+      - 'build/icon.b64'
+      - '.github/workflows/jetson.yml'
+      - '.github/workflows/bridge.yml'
 
 jobs:
   generate-bridge:

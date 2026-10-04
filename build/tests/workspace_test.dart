@@ -99,6 +99,7 @@ void main() {
         expect(find.text('خاوران دسک'), findsOneWidget);
         await tester.tap(find.byTooltip('تنظیمات'));
         expect(settings, 1);
+        await tester.pumpAndSettle();
         if (size.width == 1120) {
           await expectLater(
               find.byKey(const Key('workspace')),
