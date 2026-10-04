@@ -1,71 +1,115 @@
-name: Build Khavaran Desk Windows
+name: Build Khavaran Desk Windows Client
+
 permissions:
   contents: read
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/flutter-build.yml'
+      - '.github/workflows/bridge.yml'
+      - '.github/workflows/third-party-RustDeskTempTopMostWindow.yml'
+      - '.github/workflows/khavaran.yml'
+      - 'build/redesign.py'
+      - 'build/bootstrap.py'
+      - 'build/khavaran.patch'
+      - 'build/identity.patch'
+      - 'build/icon.b64'
+      - 'build/windows-installer.nsi'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/flutter-build.yml'
+      - '.github/workflows/bridge.yml'
+      - '.github/workflows/third-party-RustDeskTempTopMostWindow.yml'
+      - '.github/workflows/khavaran.yml'
+      - 'build/redesign.py'
+      - 'build/bootstrap.py'
+      - 'build/khavaran.patch'
+      - 'build/identity.patch'
+      - 'build/icon.b64'
+      - 'build/windows-installer.nsi'
+  workflow_dispatch: {}
+
 jobs:
   build:
     uses: ./.github/workflows/flutter-build.yml
     with:
       upload-artifact: true
       upload-tag: khavaran-build
+
   package-windows:
     needs: build
     runs-on: windows-2022
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/download-artifact@v4
-      with:
-        name: rustdesk-unsigned-windows-x86_64
-        path: build/windows-bundle
-    - name: Install NSIS
-      run: choco install nsis --yes --no-progress
-    - name: Build Khavaran installer
-      shell: pwsh
-      working-directory: build
-      run: '& "${env:ProgramFiles(x86)}\NSIS\makensis.exe" windows-installer.nsi'
-    - uses: actions/upload-artifact@v4
-      with:
-        name: KhavaranDesk-Windows-Setup
-        path: build/KhavaranDesk-Setup-x64.exe
-        if-no-files-found: error
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: rustdesk-unsigned-windows-x86_64
+          path: build/windows-bundle
+
+      - name: Install NSIS
+        run: choco install nsis --yes --no-progress
+
+      - name: Build Khavaran installer
+        shell: pwsh
+        working-directory: build
+        run: |
+          & "${env:ProgramFiles(x86)}\NSIS\makensis.exe" windows-installer.nsi
+          if (-not (Test-Path "KhavaranDesk-Setup-x64.exe")) {
+            throw "NSIS output not found"
+          }
+          Move-Item "KhavaranDesk-Setup-x64.exe" "KhavaranDesk-Client-Windows-x64.exe" -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KhavaranDesk-Client-Windows-x64
+          path: build/KhavaranDesk-Client-Windows-x64.exe
+          if-no-files-found: error
+
   publish:
+    if: github.event_name != 'pull_request'
     needs: package-windows
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: KhavaranDesk-Windows-Setup
-        path: dist
-    - name: Publish Windows installer
-      env:
-        GH_TOKEN: ${{ github.token }}
-        GH_REPO: ${{ github.repository }}
-        BUILD_SHA: ${{ github.sha }}
-        BUILD_NUMBER: ${{ github.run_number }}
-      run: |
-        set -euo pipefail
-        cd dist
-        sha256sum KhavaranDesk-Setup-x64.exe > KhavaranDesk-Setup-x64.exe.sha256
-        tag="windows-build-${BUILD_NUMBER}"
-        if ! gh release view "$tag" >/dev/null 2>&1; then
-          gh release create "$tag" --target "$BUILD_SHA" --title "Khavaran Desk Windows — build ${BUILD_NUMBER}" --notes "Windows x64 installer with Khavaran dashboard and server configuration. Unsigned build; Windows runtime verification pending." --prerelease
-        fi
-        gh release upload "$tag" KhavaranDesk-Setup-x64.exe KhavaranDesk-Setup-x64.exe.sha256 --clobber
-'on':
-  push:
-    branches:
-    - main
-    paths:
-    - '.github/workflows/flutter-build.yml'
-    - '.github/workflows/bridge.yml'
-    - '.github/workflows/third-party-RustDeskTempTopMostWindow.yml'
-    - '.github/workflows/khavaran.yml'
-    - 'build/redesign.py'
-    - 'build/bootstrap.py'
-    - 'build/khavaran.patch'
-    - 'build/identity.patch'
-    - 'build/icon.b64'
-    - 'build/windows-installer.nsi'
-  workflow_dispatch: {}
+      - uses: actions/download-artifact@v4
+        with:
+          name: KhavaranDesk-Client-Windows-x64
+          path: dist
 
+      - name: Publish Windows client
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.sha }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum KhavaranDesk-Client-Windows-x64.exe > KhavaranDesk-Client-Windows-x64.exe.sha256
+          tag="client-windows-build-${BUILD_NUMBER}"
+
+          cat > release-notes.md <<'EOF'
+          Khavaran Desk Windows Client
+
+          - Persian-first UI with real RTL layout
+          - visible server status and server setup on the main page
+          - ID Server / Relay Server / API Server / Key configuration
+          - server addresses stay LTR inside the Persian UI
+          - responsive Khavaran Desk desktop dashboard
+
+          Unsigned Windows build. Validate on a Windows device before production deployment.
+          EOF
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag"               --target "$BUILD_SHA"               --title "Khavaran Desk Client — Windows x64 build ${BUILD_NUMBER}"               --notes-file release-notes.md               --prerelease
+          fi
+
+          gh release upload "$tag"             KhavaranDesk-Client-Windows-x64.exe             KhavaranDesk-Client-Windows-x64.exe.sha256             --clobber
