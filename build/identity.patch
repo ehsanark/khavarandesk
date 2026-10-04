@@ -16,8 +16,9 @@ index 6fe1004..2938145 100644
  ];
  
 -pub const RENDEZVOUS_SERVERS: &[&str] = &["rs-ny.rustdesk.com"];
-+pub const RENDEZVOUS_SERVERS: &[&str] = &["127.0.0.1"];
- pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
++pub const RENDEZVOUS_SERVERS: &[&str] = &["2.181.250.249"];
+-pub const RS_PUB_KEY: &str = "OeVuKk5nlHiXp+APNn0Y3pC1Iwpwn44JGqrQCsWqmBw=";
++pub const RS_PUB_KEY: &str = "SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=";
  
  pub const RENDEZVOUS_PORT: i32 = 21116;
 @@ -1055,17 +1055,7 @@ impl Config {
@@ -67,8 +68,9 @@ index 6fe1004..2938145 100644
 +    }
 +
 +    #[test]
-+    fn khavaran_has_an_independent_config_namespace_and_no_public_default() {
++    fn khavaran_has_independent_identity_and_private_server_defaults() {
 +        assert_eq!(APP_NAME.read().unwrap().as_str(), "KhavaranDesk");
-+        assert_eq!(RENDEZVOUS_SERVERS, &["127.0.0.1"]);
++        assert_eq!(RENDEZVOUS_SERVERS, &["2.181.250.249"]);
++        assert_eq!(RS_PUB_KEY, "SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=");
 +    }
 +}
