@@ -1,0 +1,25 @@
+[Unit]
+Description=Khavaran Desk ID/Rendezvous Server (hbbs)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=khavarandesk
+Group=khavarandesk
+WorkingDirectory=/var/lib/khavarandesk-server
+Environment=HBBS_ARGS=
+Environment=RUST_LOG=info
+EnvironmentFile=-/etc/khavarandesk-server/server.env
+ExecStart=/bin/sh -c 'exec /opt/khavarandesk-server/bin/hbbs $HBBS_ARGS'
+Restart=always
+RestartSec=5
+LimitNOFILE=1000000
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/khavarandesk-server
+
+[Install]
+WantedBy=multi-user.target
