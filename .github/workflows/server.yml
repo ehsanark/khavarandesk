@@ -1,0 +1,195 @@
+name: Build Khavaran Desk Server
+
+permissions:
+  contents: read
+
+'on':
+  push:
+    branches:
+      - main
+    paths:
+      - 'server/**'
+      - '.github/workflows/server.yml'
+  workflow_dispatch: {}
+
+jobs:
+  package:
+    name: Package server / ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: x64
+            asset_arch: amd64
+            expected_sha256: 0565c41affe6c3f409b0bddfaf5a24ccbf3f64f5f8e3fec250b69a0d5f6bdbcf
+            file_arch_regex: 'x86-64|x86_64'
+          - label: ARM64
+            asset_arch: arm64v8
+            expected_sha256: 6a4ae3c5ca257a4278ded72fd17eb2ca4eeb0356a5425e63a3e7fcb0ec6c155c
+            file_arch_regex: 'aarch64|ARM aarch64'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read pinned versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PACKAGE_VERSION=$(tr -d '[:space:]' < server/VERSION)" >> "$GITHUB_ENV"
+          echo "UPSTREAM_VERSION=$(tr -d '[:space:]' < server/UPSTREAM_VERSION)" >> "$GITHUB_ENV"
+
+      - name: Download verified RustDesk Server binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://github.com/rustdesk/rustdesk-server/releases/download/${UPSTREAM_VERSION}/rustdesk-server-linux-${{ matrix.asset_arch }}.zip"
+          curl --fail --location --retry 4 --retry-all-errors --output upstream.zip "$url"
+          echo "${{ matrix.expected_sha256 }}  upstream.zip" | sha256sum --check -
+
+      - name: Assemble Khavaran server bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf upstream package
+          mkdir -p upstream package
+          unzip -q upstream.zip -d upstream
+
+          hbbs_path="$(find upstream -type f -name hbbs -print -quit)"
+          hbbr_path="$(find upstream -type f -name hbbr -print -quit)"
+          test -n "$hbbs_path"
+          test -n "$hbbr_path"
+
+          folder="KhavaranDesk-Server-Linux-${{ matrix.label }}"
+          mkdir -p "package/$folder/bin" "package/$folder/systemd"
+
+          install -m 0755 "$hbbs_path" "package/$folder/bin/hbbs"
+          install -m 0755 "$hbbr_path" "package/$folder/bin/hbbr"
+          install -m 0755 server/install.sh "package/$folder/install.sh"
+          install -m 0755 server/uninstall.sh "package/$folder/uninstall.sh"
+          install -m 0755 server/khavaran-server "package/$folder/khavaran-server"
+          install -m 0644 server/khavaran-hbbs.service "package/$folder/systemd/khavaran-hbbs.service"
+          install -m 0644 server/khavaran-hbbr.service "package/$folder/systemd/khavaran-hbbr.service"
+          install -m 0644 server/VERSION "package/$folder/VERSION"
+          install -m 0644 server/UPSTREAM_VERSION "package/$folder/UPSTREAM_VERSION"
+          install -m 0644 server/README.md "package/$folder/README.md"
+          install -m 0644 LICENSE "package/$folder/LICENSE"
+
+          cat > "package/$folder/UPSTREAM.md" <<EOF
+          Khavaran Desk Server package: ${PACKAGE_VERSION}
+          RustDesk Server OSS upstream: ${UPSTREAM_VERSION}
+          Upstream project: https://github.com/rustdesk/rustdesk-server
+          Upstream asset: rustdesk-server-linux-${{ matrix.asset_arch }}.zip
+          Upstream asset SHA256: ${{ matrix.expected_sha256 }}
+
+          The hbbs and hbbr binaries are unmodified official RustDesk Server OSS
+          release binaries. Khavaran Desk adds packaging, systemd services,
+          installation tooling and documentation.
+          EOF
+
+          file "package/$folder/bin/hbbs" | tee hbbs.file
+          file "package/$folder/bin/hbbr" | tee hbbr.file
+          grep -Eq "${{ matrix.file_arch_regex }}" hbbs.file
+          grep -Eq "${{ matrix.file_arch_regex }}" hbbr.file
+
+          tar -C package -czf "$folder.tar.gz" "$folder"
+          sha256sum "$folder.tar.gz" > "$folder.tar.gz.sha256"
+
+      - name: Runtime smoke test x64
+        if: matrix.label == 'x64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          folder="$GITHUB_WORKSPACE/package/KhavaranDesk-Server-Linux-x64"
+          "$folder/bin/hbbs" --help >/dev/null
+          "$folder/bin/hbbr" --help >/dev/null
+
+          state="$(mktemp -d)"
+          cd "$state"
+          "$folder/bin/hbbr" >hbbr.log 2>&1 &
+          hbbr_pid=$!
+          "$folder/bin/hbbs" -r 127.0.0.1:21117 >hbbs.log 2>&1 &
+          hbbs_pid=$!
+          cleanup() {
+            kill "$hbbs_pid" "$hbbr_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          sleep 4
+
+          kill -0 "$hbbs_pid"
+          kill -0 "$hbbr_pid"
+          test -s id_ed25519.pub
+          ss -ltn | grep -q ':21117'
+          ss -lun | grep -q ':21116'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: khavaran-server-${{ matrix.label }}
+          path: |
+            KhavaranDesk-Server-Linux-${{ matrix.label }}.tar.gz
+            KhavaranDesk-Server-Linux-${{ matrix.label }}.tar.gz.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish server release
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read pinned versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "PACKAGE_VERSION=$(tr -d '[:space:]' < server/VERSION)" >> "$GITHUB_ENV"
+          echo "UPSTREAM_VERSION=$(tr -d '[:space:]' < server/UPSTREAM_VERSION)" >> "$GITHUB_ENV"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: khavaran-server-*
+          path: dist
+          merge-multiple: true
+
+      - name: Verify and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum --check *.sha256
+          sha256sum *.tar.gz > SHA256SUMS
+
+          base_tag="server-v${PACKAGE_VERSION}-rd${UPSTREAM_VERSION}"
+          tag="$base_tag"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            tag="${base_tag}-build-${GITHUB_RUN_NUMBER}"
+          fi
+
+          cat > release-notes.md <<EOF
+          Khavaran Desk Server ${PACKAGE_VERSION}
+
+          Based on verified, unmodified RustDesk Server OSS ${UPSTREAM_VERSION} hbbs/hbbr binaries.
+
+          Included:
+          - Linux x64 server bundle
+          - Linux ARM64 / Jetson server bundle
+          - systemd services: khavaran-hbbs and khavaran-hbbr
+          - install/uninstall scripts
+          - khavaran-server status/key/log/restart utility
+          - SHA256 checksums
+
+          Client setup after installation:
+          - ID Server: public IP/hostname of this server
+          - Relay Server: public IP/hostname of this server
+          - API Server: blank for OSS
+          - Key: sudo khavaran-server key
+
+          Required firewall ports: TCP 21115-21119 and UDP 21116.
+          EOF
+
+          gh release create "$tag"             --target "$GITHUB_SHA"             --title "Khavaran Desk Server ${PACKAGE_VERSION} (RustDesk ${UPSTREAM_VERSION})"             --notes-file release-notes.md             --prerelease             KhavaranDesk-Server-Linux-x64.tar.gz             KhavaranDesk-Server-Linux-x64.tar.gz.sha256             KhavaranDesk-Server-Linux-ARM64.tar.gz             KhavaranDesk-Server-Linux-ARM64.tar.gz.sha256             SHA256SUMS
