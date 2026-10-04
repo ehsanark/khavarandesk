@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+STATE_DIR="/var/lib/khavarandesk-server"
+PREFIX="/opt/khavarandesk-server"
+
+usage() {
+  cat <<'EOF'
+Khavaran Desk Server manager
+
+Usage:
+  khavaran-server status
+  khavaran-server info
+  khavaran-server key
+  khavaran-server restart
+  khavaran-server logs [hbbs|hbbr]
+EOF
+}
+
+cmd="${1:-info}"
+case "${cmd}" in
+  status)
+    systemctl --no-pager --full status khavaran-hbbs.service khavaran-hbbr.service
+    ;;
+  key)
+    if [[ -s "${STATE_DIR}/id_ed25519.pub" ]]; then
+      cat "${STATE_DIR}/id_ed25519.pub"
+    else
+      echo "Public key has not been generated yet. Check: systemctl status khavaran-hbbs" >&2
+      exit 1
+    fi
+    ;;
+  restart)
+    if [[ ${EUID} -ne 0 ]]; then
+      echo "Restart requires root. Run: sudo khavaran-server restart" >&2
+      exit 1
+    fi
+    systemctl restart khavaran-hbbr.service khavaran-hbbs.service
+    systemctl --no-pager --full is-active khavaran-hbbr.service khavaran-hbbs.service
+    ;;
+  logs)
+    unit="${2:-hbbs}"
+    case "${unit}" in
+      hbbs) journalctl -u khavaran-hbbs.service -n 100 --no-pager ;;
+      hbbr) journalctl -u khavaran-hbbr.service -n 100 --no-pager ;;
+      *) echo "Choose hbbs or hbbr." >&2; exit 2 ;;
+    esac
+    ;;
+  info)
+    pkg_ver="unknown"
+    upstream_ver="unknown"
+    [[ -f "${PREFIX}/VERSION" ]] && pkg_ver="$(cat "${PREFIX}/VERSION")"
+    [[ -f "${PREFIX}/UPSTREAM_VERSION" ]] && upstream_ver="$(cat "${PREFIX}/UPSTREAM_VERSION")"
+    echo "Khavaran Desk Server"
+    echo "Package version:  ${pkg_ver}"
+    echo "RustDesk upstream: ${upstream_ver}"
+    echo "HBBS: $(systemctl is-active khavaran-hbbs.service 2>/dev/null || true)"
+    echo "HBBR: $(systemctl is-active khavaran-hbbr.service 2>/dev/null || true)"
+    echo "State directory:   ${STATE_DIR}"
+    echo "Config file:       /etc/khavarandesk-server/server.env"
+    if command -v hostname >/dev/null; then
+      echo "Local addresses:   $(hostname -I 2>/dev/null | xargs || true)"
+    fi
+    if [[ -s "${STATE_DIR}/id_ed25519.pub" ]]; then
+      echo -n "Public key:        "
+      cat "${STATE_DIR}/id_ed25519.pub"
+    else
+      echo "Public key:        not generated yet"
+    fi
+    echo
+    echo "Client settings:"
+    echo "  ID Server    = your public hostname/IP"
+    echo "  Relay Server = your public hostname/IP"
+    echo "  API Server   = blank (OSS server)"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
