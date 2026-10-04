@@ -31,6 +31,24 @@ install -d -m 0755 "${PREFIX}/bin"
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${STATE_DIR}"
 install -d -m 0755 "${CONF_DIR}"
 
+# Preserve an existing RustDesk Server OSS identity when migrating to
+# Khavaran Desk Server. The public key compiled into Khavaran clients only
+# works when the server still owns the matching private key.
+LEGACY_STATE_DIR="/var/lib/rustdesk-server"
+if [[ ! -s "${STATE_DIR}/id_ed25519" && -s "${LEGACY_STATE_DIR}/id_ed25519" ]]; then
+  echo "Existing RustDesk server identity found; migrating it to Khavaran Desk..."
+  install -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0600 \
+    "${LEGACY_STATE_DIR}/id_ed25519" "${STATE_DIR}/id_ed25519"
+  if [[ -s "${LEGACY_STATE_DIR}/id_ed25519.pub" ]]; then
+    install -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0644 \
+      "${LEGACY_STATE_DIR}/id_ed25519.pub" "${STATE_DIR}/id_ed25519.pub"
+  fi
+  if [[ -f "${LEGACY_STATE_DIR}/db_v2.sqlite3" && ! -f "${STATE_DIR}/db_v2.sqlite3" ]]; then
+    install -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0600 \
+      "${LEGACY_STATE_DIR}/db_v2.sqlite3" "${STATE_DIR}/db_v2.sqlite3"
+  fi
+fi
+
 install -m 0755 "${SCRIPT_DIR}/bin/hbbs" "${PREFIX}/bin/hbbs"
 install -m 0755 "${SCRIPT_DIR}/bin/hbbr" "${PREFIX}/bin/hbbr"
 install -m 0644 "${SCRIPT_DIR}/VERSION" "${PREFIX}/VERSION"
