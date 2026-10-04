@@ -172,7 +172,7 @@ new_build = r'''    final isOutgoingOnly = bind.isOutgoingOnly();
                               color: accent.withOpacity(.12),
                               borderRadius: BorderRadius.circular(13),
                             ),
-                            child: const Icon(Icons.dns_rounded, color: accent),
+                            child: Icon(Icons.dns_rounded, color: accent),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -285,7 +285,7 @@ new_build = r'''    final isOutgoingOnly = bind.isOutgoingOnly();
                           color: accent.withOpacity(.12),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.computer_rounded,
                           color: accent,
                           size: 25,
@@ -341,7 +341,7 @@ new_build = r'''    final isOutgoingOnly = bind.isOutgoingOnly();
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.send_to_mobile_rounded,
                         color: accent,
                         size: 22,
