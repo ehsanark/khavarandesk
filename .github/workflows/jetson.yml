@@ -19,6 +19,7 @@ on:
       - ".github/workflows/jetson.yml"
       - ".github/workflows/bridge.yml"
       - "build/bootstrap.py"
+      - "build/redesign.py"
       - "build/khavaran.patch"
       - "build/identity.patch"
       - "build/icon.b64"
@@ -222,16 +223,73 @@ jobs:
         shell: bash
         run: |
           test -f rustdesk-jetson-aarch64.deb
-          cp rustdesk-jetson-aarch64.deb KhavaranDesk-Jetson-Orin-Nano-arm64.deb
-          sha256sum KhavaranDesk-Jetson-Orin-Nano-arm64.deb > KhavaranDesk-Jetson-Orin-Nano-arm64.deb.sha256
-          dpkg-deb --info KhavaranDesk-Jetson-Orin-Nano-arm64.deb
-          ls -lh KhavaranDesk-Jetson-Orin-Nano-arm64.deb*
+          cp rustdesk-jetson-aarch64.deb KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb
+          sha256sum KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb > KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb.sha256
+          dpkg-deb --info KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb
+          ls -lh KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb*
 
       - name: Upload Jetson installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: KhavaranDesk-Jetson-Orin-Nano-arm64
+          name: KhavaranDesk-Client-Jetson-Orin-Nano-arm64
           path: |
-            KhavaranDesk-Jetson-Orin-Nano-arm64.deb
-            KhavaranDesk-Jetson-Orin-Nano-arm64.deb.sha256
+            KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb
+            KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb.sha256
           if-no-files-found: error
+
+
+  publish-jetson-client:
+    name: Publish Jetson client release
+    needs:
+      - build-jetson-arm64
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Jetson client artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: KhavaranDesk-Client-Jetson-Orin-Nano-arm64
+          path: dist
+
+      - name: Verify and publish Jetson client
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BUILD_SHA: ${{ github.sha }}
+          BUILD_NUMBER: ${{ github.run_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum --check KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb.sha256
+          tag="client-jetson-build-${BUILD_NUMBER}"
+
+          cat > release-notes.md <<'EOF'
+          Khavaran Desk Client for NVIDIA Jetson Orin Nano / Linux ARM64
+
+          - ARM64 Debian package
+          - Persian-first UI with real RTL layout
+          - visible ID/Relay server setup on the main screen
+          - compatible with the same Khavaran Desk Server used by Windows clients
+
+          Configure ID Server and Relay Server with the public VPS hostname/IP,
+          leave API Server blank for OSS, and use the server public key.
+
+          This build is produced for Jetson/ARM64 and should be device-tested
+          on the target JetPack/Ubuntu environment before production use.
+          EOF
+
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" \
+              --target "$BUILD_SHA" \
+              --title "Khavaran Desk Client — Jetson Orin Nano ARM64 build ${BUILD_NUMBER}" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
+
+          gh release upload "$tag" \
+            KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb \
+            KhavaranDesk-Client-Jetson-Orin-Nano-arm64.deb.sha256 \
+            --clobber
