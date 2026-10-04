@@ -123,6 +123,7 @@ for font in Path("build/fonts").glob("*"):
     dest = Path("flutter/assets/fonts") / font.name
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(font, dest)
+shutil.copy2("build/fonts/OFL.txt", "flutter/assets/Vazirmatn-OFL.txt")
 pub = read("flutter/pubspec.yaml")
 pub = replace_once(pub, "  fonts:\n", """  fonts:
     - family: Vazirmatn
