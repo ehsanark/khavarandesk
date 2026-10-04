@@ -42,12 +42,14 @@ Open these firewall ports:
 - TCP 21115-21119
 - UDP 21116
 
-Then configure the client:
+Current Khavaran client builds are configured for the project server by default:
 
-- ID Server: public hostname or IP of your server
-- Relay Server: public hostname or IP of your server
-- API Server: leave blank for the OSS server
-- Key: output of `sudo khavaran-server key`
+- ID Server: `2.181.250.249`
+- Relay Server: `2.181.250.249`
+- API Server: blank
+- Public Key: `SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=`
+
+These values are compiled into the Windows and Jetson clients as the default rendezvous server/key and are also shown in the Network/Server dialog. Users may override them manually if a different server is required.
 
 ## Server layout
 
