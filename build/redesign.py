@@ -80,6 +80,41 @@ s = replace_once(
 write(main_path, s)
 
 
+# Prefill the Network/Server dialog with Khavaran's private server defaults.
+# Users can still override these values manually if they need another server.
+dialog_path = "flutter/lib/mobile/widgets/dialog.dart"
+s = read(dialog_path)
+dialog_old = """  final idCtrl = TextEditingController(text: serverConfig.idServer);
+  final relayCtrl = TextEditingController(text: serverConfig.relayServer);
+  final apiCtrl = TextEditingController(text: serverConfig.apiServer);
+  final keyCtrl = TextEditingController(text: serverConfig.key);
+"""
+dialog_new = """  const khavaranDefaultServer = '2.181.250.249';
+  const khavaranDefaultKey =
+      'SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=';
+  final idCtrl = TextEditingController(
+      text: serverConfig.idServer.trim().isEmpty
+          ? khavaranDefaultServer
+          : serverConfig.idServer);
+  final relayCtrl = TextEditingController(
+      text: serverConfig.relayServer.trim().isEmpty
+          ? khavaranDefaultServer
+          : serverConfig.relayServer);
+  final apiCtrl = TextEditingController(text: serverConfig.apiServer);
+  final keyCtrl = TextEditingController(
+      text: serverConfig.key.trim().isEmpty
+          ? khavaranDefaultKey
+          : serverConfig.key);
+"""
+s = replace_once(
+    s,
+    dialog_old,
+    dialog_new,
+    "Network dialog Khavaran defaults",
+)
+write(dialog_path, s)
+
+
 # Desktop home: responsive dashboard with visible server configuration.
 home_path = "flutter/lib/desktop/pages/desktop_home_page.dart"
 s = read(home_path)
@@ -148,10 +183,14 @@ new_build = r'''    final isOutgoingOnly = bind.isOutgoingOnly();
                         jsonDecode(snapshot.data!) as Map<String, dynamic>);
                   } catch (_) {}
                 }
-                final configured = config.idServer.trim().isNotEmpty;
-                final idServer = configured
+                final hasCustomId = config.idServer.trim().isNotEmpty;
+                final idServer = hasCustomId
                     ? config.idServer.trim()
-                    : 'سرور هنوز تعریف نشده است';
+                    : '2.181.250.249';
+                final relayServer = config.relayServer.trim().isNotEmpty
+                    ? config.relayServer.trim()
+                    : '2.181.250.249';
+                const configured = true;
 
                 return Container(
                   padding: const EdgeInsets.all(16),
@@ -219,14 +258,11 @@ new_build = r'''    final isOutgoingOnly = bind.isOutgoingOnly();
                           ),
                         ],
                       ),
-                      if (configured &&
-                          (config.relayServer.trim().isNotEmpty ||
-                              config.apiServer.trim().isNotEmpty)) ...[
+                      if (configured) ...[
                         const SizedBox(height: 12),
                         Text(
                           [
-                            if (config.relayServer.trim().isNotEmpty)
-                              'Relay: ${config.relayServer.trim()}',
+                            'Relay: $relayServer',
                             if (config.apiServer.trim().isNotEmpty)
                               'API: ${config.apiServer.trim()}',
                           ].join('   •   '),
@@ -248,9 +284,9 @@ new_build = r'''    final isOutgoingOnly = bind.isOutgoingOnly();
                                   ),
                           icon: const Icon(Icons.tune_rounded, size: 18),
                           label: Text(
-                            configured
+                            hasCustomId
                                 ? 'ویرایش تنظیمات سرور'
-                                : 'تعریف و معرفی سرور',
+                                : 'تنظیمات سرور خاوران',
                           ),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: accent,
