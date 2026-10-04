@@ -1,0 +1,52 @@
+name: Khavaran workspace checks
+on:
+  push:
+    branches: [main]
+    paths: ['build/**', '.github/workflows/ui-check.yml']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@2783a3f08e1baf891508463f8c6653c258246225
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+      - name: Prepare isolated test harness for the production shell
+        run: |
+          mkdir -p ui-check/lib ui-check/test ui-check/fonts
+          cp build/ui/khavaran_workspace.dart ui-check/lib/
+          cp build/tests/workspace_test.dart ui-check/test/
+          cp build/fonts/*.ttf ui-check/fonts/
+          cat > ui-check/pubspec.yaml <<'YAML'
+          name: khavaran_ui
+          environment:
+            sdk: '>=3.3.0 <4.0.0'
+          dependencies:
+            flutter:
+              sdk: flutter
+          dev_dependencies:
+            flutter_test:
+              sdk: flutter
+          flutter:
+            uses-material-design: true
+            assets:
+              - fonts/
+          YAML
+      - name: Analyze and exercise responsive RTL workspace
+        working-directory: ui-check
+        run: |
+          flutter pub get
+          flutter analyze lib test
+          flutter test --update-goldens
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Khavaran-Workspace-Previews
+          path: ui-check/test/screenshots/*.png
+          if-no-files-found: error

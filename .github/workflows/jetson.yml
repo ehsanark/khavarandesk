@@ -20,9 +20,14 @@ on:
       - ".github/workflows/bridge.yml"
       - "build/bootstrap.py"
       - "build/redesign.py"
+      - "build/ui/**"
+      - "build/fonts/**"
       - "build/khavaran.patch"
       - "build/identity.patch"
       - "build/icon.b64"
+
+  pull_request:
+    branches: [main]
 
 jobs:
   generate-bridge:
@@ -239,6 +244,7 @@ jobs:
 
 
   publish-jetson-client:
+    if: github.event_name != 'pull_request'
     name: Publish Jetson client release
     needs:
       - build-jetson-arm64

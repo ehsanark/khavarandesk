@@ -12,6 +12,9 @@ permissions:
       - '.github/workflows/server.yml'
   workflow_dispatch: {}
 
+  pull_request:
+    branches: [main]
+
 jobs:
   package:
     name: Package server / ${{ matrix.label }}
@@ -131,6 +134,7 @@ jobs:
           if-no-files-found: error
 
   publish:
+    if: github.event_name != 'pull_request'
     name: Publish server release
     needs: package
     runs-on: ubuntu-latest

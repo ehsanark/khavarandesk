@@ -7,10 +7,30 @@ CONF_DIR="/etc/khavarandesk-server"
 SERVICE_USER="khavarandesk"
 SERVICE_GROUP="khavarandesk"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LEGACY_STATE_DIR="${1:-/var/lib/rustdesk-server}"
+EXPECTED_KEY="SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg="
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "Please run this installer as root: sudo ./install.sh" >&2
   exit 1
+fi
+
+if [[ $# -gt 1 ]]; then
+  echo "Usage: sudo ./install.sh [existing-server-state-directory]" >&2
+  exit 2
+fi
+for unit in rustdesk-hbbs.service rustdesk-hbbr.service hbbs.service hbbr.service; do
+  if systemctl is-active --quiet "$unit"; then
+    echo "Existing service $unit is running. Stop it during your migration window, then rerun this installer. No data was changed." >&2
+    exit 1
+  fi
+done
+if [[ ! -s "${STATE_DIR}/id_ed25519" && -s "${LEGACY_STATE_DIR}/id_ed25519" && ! -s "${LEGACY_STATE_DIR}/id_ed25519.pub" ]]; then
+  echo "The migration directory must contain both id_ed25519 and id_ed25519.pub." >&2
+  exit 1
+fi
+if [[ ! -s "${STATE_DIR}/id_ed25519" && -f "${LEGACY_STATE_DIR}/db_v2.sqlite3" ]]; then
+  command -v python3 >/dev/null || { echo "Install python3 to safely migrate the SQLite database." >&2; exit 1; }
 fi
 
 for bin in hbbs hbbr; do
@@ -34,7 +54,6 @@ install -d -m 0755 "${CONF_DIR}"
 # Preserve an existing RustDesk Server OSS identity when migrating to
 # Khavaran Desk Server. The public key compiled into Khavaran clients only
 # works when the server still owns the matching private key.
-LEGACY_STATE_DIR="/var/lib/rustdesk-server"
 if [[ ! -s "${STATE_DIR}/id_ed25519" && -s "${LEGACY_STATE_DIR}/id_ed25519" ]]; then
   echo "Existing RustDesk server identity found; migrating it to Khavaran Desk..."
   install -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0600 \
@@ -44,8 +63,16 @@ if [[ ! -s "${STATE_DIR}/id_ed25519" && -s "${LEGACY_STATE_DIR}/id_ed25519" ]]; 
       "${LEGACY_STATE_DIR}/id_ed25519.pub" "${STATE_DIR}/id_ed25519.pub"
   fi
   if [[ -f "${LEGACY_STATE_DIR}/db_v2.sqlite3" && ! -f "${STATE_DIR}/db_v2.sqlite3" ]]; then
-    install -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0600 \
-      "${LEGACY_STATE_DIR}/db_v2.sqlite3" "${STATE_DIR}/db_v2.sqlite3"
+    # SQLite backup includes committed WAL data; a plain file copy does not.
+    python3 - "${LEGACY_STATE_DIR}/db_v2.sqlite3" "${STATE_DIR}/db_v2.sqlite3" <<'PY'
+import sqlite3, sys
+from pathlib import Path
+source = sqlite3.connect(Path(sys.argv[1]).resolve().as_uri() + '?mode=ro', uri=True)
+with sqlite3.connect(sys.argv[2]) as dest:
+    source.backup(dest)
+source.close()
+PY
+    chmod 0600 "${STATE_DIR}/db_v2.sqlite3"
   fi
 fi
 
@@ -64,7 +91,7 @@ if [[ ! -f "${CONF_DIR}/server.env" ]]; then
 # Optional command-line arguments.
 # Example when your relay is relay.example.com:
 # HBBS_ARGS=-r relay.example.com:21117
-HBBS_ARGS=
+HBBS_ARGS=-r 2.181.250.249:21117
 HBBR_ARGS=
 RUST_LOG=info
 EOF
@@ -74,8 +101,8 @@ fi
 chown -R "${SERVICE_USER}:${SERVICE_GROUP}" "${STATE_DIR}"
 
 systemctl daemon-reload
-systemctl enable --now khavaran-hbbr.service
-systemctl enable --now khavaran-hbbs.service
+systemctl enable khavaran-hbbr.service khavaran-hbbs.service
+systemctl restart khavaran-hbbr.service khavaran-hbbs.service
 
 sleep 2
 failed=0
@@ -117,3 +144,7 @@ else
 fi
 echo
 echo "Use 'sudo khavaran-server info' for a summary."
+if [[ -s "${STATE_DIR}/id_ed25519.pub" ]] && [[ "$(tr -d '[:space:]' < "${STATE_DIR}/id_ed25519.pub")" != "$EXPECTED_KEY" ]]; then
+  echo "NOTICE: This server's public key differs from the key bundled in the Khavaran clients."
+  echo "Import the existing matching server identity, or enter this server's actual public key in each client's Network settings."
+fi
