@@ -1,0 +1,299 @@
+--- a/libs/hbb_common/src/config.rs
++++ b/libs/hbb_common/src/config.rs
+@@ -74,8 +74,8 @@
+     static ref USER_DEFAULT_CONFIG: RwLock<(UserDefaultConfig, Instant)> = RwLock::new((UserDefaultConfig::load(), Instant::now()));
+     pub static ref NEW_STORED_PEER_CONFIG: Mutex<HashSet<String>> = Default::default();
+     pub static ref DEFAULT_SETTINGS: RwLock<HashMap<String, String>> = RwLock::new(HashMap::from([
+-        ("custom-rendezvous-server".to_owned(), "2.181.250.249".to_owned()),
+-        ("relay-server".to_owned(), "2.181.250.249".to_owned()),
++        ("custom-rendezvous-server".to_owned(), "it-desk.khavaranai.ir".to_owned()),
++        ("relay-server".to_owned(), "it-desk.khavaranai.ir".to_owned()),
+         ("key".to_owned(), RS_PUB_KEY.to_owned()),
+     ]));
+     pub static ref OVERWRITE_SETTINGS: RwLock<HashMap<String, String>> = Default::default();
+@@ -118,8 +118,21 @@
+     'm', 'n', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+ ];
+ 
+-pub const RENDEZVOUS_SERVERS: &[&str] = &["2.181.250.249"];
++pub const RENDEZVOUS_SERVERS: &[&str] = &["it-desk.khavaranai.ir"];
+ pub const RS_PUB_KEY: &str = "SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=";
++
++// Product policy: configuration files, imports and executable names cannot
++// override these endpoints. Only public information belongs in this client.
++pub const KHAVARAN_NETWORK: &[(&str, &str)] = &[
++    ("custom-rendezvous-server", "it-desk.khavaranai.ir"),
++    ("relay-server", "it-desk.khavaranai.ir:21117"),
++    ("api-server", "https://it-desk.khavaranai.ir:8443"),
++    ("key", RS_PUB_KEY),
++];
++
++pub fn khavaran_network_option(key: &str) -> Option<&'static str> {
++    KHAVARAN_NETWORK.iter().find(|(k, _)| *k == key).map(|(_, v)| *v)
++}
+ 
+ pub const RENDEZVOUS_PORT: i32 = 21116;
+ pub const RELAY_PORT: i32 = 21117;
+@@ -912,53 +925,11 @@
+     }
+ 
+     pub fn get_rendezvous_server() -> String {
+-        let mut rendezvous_server = EXE_RENDEZVOUS_SERVER.read().unwrap().clone();
+-        if rendezvous_server.is_empty() {
+-            rendezvous_server = Self::get_option("custom-rendezvous-server");
+-        }
+-        if rendezvous_server.is_empty() {
+-            rendezvous_server = PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
+-        }
+-        if rendezvous_server.is_empty() {
+-            rendezvous_server = CONFIG2.read().unwrap().rendezvous_server.clone();
+-        }
+-        if rendezvous_server.is_empty() {
+-            rendezvous_server = Self::get_rendezvous_servers()
+-                .drain(..)
+-                .next()
+-                .unwrap_or_default();
+-        }
+-        if !rendezvous_server.contains(':') {
+-            rendezvous_server = format!("{rendezvous_server}:{RENDEZVOUS_PORT}");
+-        }
+-        rendezvous_server
++        format!("{}:{}", RENDEZVOUS_SERVERS[0], RENDEZVOUS_PORT)
+     }
+ 
+     pub fn get_rendezvous_servers() -> Vec<String> {
+-        let s = EXE_RENDEZVOUS_SERVER.read().unwrap().clone();
+-        if !s.is_empty() {
+-            return vec![s];
+-        }
+-        let s = Self::get_option("custom-rendezvous-server");
+-        if !s.is_empty() {
+-            return vec![s];
+-        }
+-        let s = PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
+-        if !s.is_empty() {
+-            return vec![s];
+-        }
+-        let serial_obsolute = CONFIG2.read().unwrap().serial > SERIAL;
+-        if serial_obsolute {
+-            let ss: Vec<String> = Self::get_option("rendezvous-servers")
+-                .split(',')
+-                .filter(|x| x.contains('.'))
+-                .map(|x| x.to_owned())
+-                .collect();
+-            if !ss.is_empty() {
+-                return ss;
+-            }
+-        }
+-        return RENDEZVOUS_SERVERS.iter().map(|x| x.to_string()).collect();
++        RENDEZVOUS_SERVERS.iter().map(|s| (*s).to_owned()).collect()
+     }
+ 
+     pub fn reset_online() {
+@@ -1215,11 +1186,13 @@
+         let mut res = DEFAULT_SETTINGS.read().unwrap().clone();
+         res.extend(CONFIG2.read().unwrap().options.clone());
+         res.extend(OVERWRITE_SETTINGS.read().unwrap().clone());
++        res.extend(KHAVARAN_NETWORK.iter().map(|(k, v)| ((*k).to_owned(), (*v).to_owned())));
+         res
+     }
+ 
+     #[inline]
+     fn purify_options(v: &mut HashMap<String, String>) {
++        v.retain(|k, _| khavaran_network_option(k).is_none());
+         v.retain(|k, v| is_option_can_save(&OVERWRITE_SETTINGS, k, &DEFAULT_SETTINGS, v));
+     }
+ 
+@@ -1234,6 +1207,9 @@
+     }
+ 
+     pub fn get_option(k: &str) -> String {
++        if let Some(value) = khavaran_network_option(k) {
++            return value.to_owned();
++        }
+         get_or(
+             &OVERWRITE_SETTINGS,
+             &CONFIG2.read().unwrap().options,
+@@ -1248,7 +1224,7 @@
+     }
+ 
+     pub fn set_option(k: String, v: String) {
+-        if !is_option_can_save(&OVERWRITE_SETTINGS, &k, &DEFAULT_SETTINGS, &v) {
++        if khavaran_network_option(&k).is_some() || !is_option_can_save(&OVERWRITE_SETTINGS, &k, &DEFAULT_SETTINGS, &v) {
+             let mut config = CONFIG2.write().unwrap();
+             if config.options.remove(&k).is_some() {
+                 config.store();
+@@ -3689,7 +3665,48 @@
+     #[test]
+     fn khavaran_has_independent_identity_and_private_server_defaults() {
+         assert_eq!(APP_NAME.read().unwrap().as_str(), "KhavaranDesk");
+-        assert_eq!(RENDEZVOUS_SERVERS, &["2.181.250.249"]);
++        assert_eq!(RENDEZVOUS_SERVERS, &["it-desk.khavaranai.ir"]);
+         assert_eq!(RS_PUB_KEY, "SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=");
+     }
+ }
++
++#[cfg(test)]
++mod khavaran_network_tests {
++    use super::*;
++
++    #[test]
++    fn managed_options_win_over_saved_and_imported_values() {
++        // Inject stale disk/import values without writing any user configuration.
++        let saved = CONFIG2.read().unwrap().options.clone();
++        {
++            let mut config = CONFIG2.write().unwrap();
++            for (key, _) in KHAVARAN_NETWORK {
++                config.options.insert((*key).into(), "untrusted.invalid".into());
++            }
++        }
++        let options = Config::get_options();
++        let individual: Vec<_> = KHAVARAN_NETWORK.iter()
++            .map(|(key, _)| Config::get_option(key)).collect();
++        CONFIG2.write().unwrap().options = saved;
++        for ((key, expected), actual) in KHAVARAN_NETWORK.iter().zip(individual) {
++            assert_eq!(actual, *expected);
++            assert_eq!(options.get(*key).map(String::as_str), Some(*expected));
++        }
++        assert_eq!(Config::get_rendezvous_server(), "it-desk.khavaranai.ir:21116");
++        assert_eq!(Config::get_rendezvous_servers(), vec!["it-desk.khavaranai.ir"]);
++    }
++
++    #[test]
++    fn bulk_import_discards_network_overrides_but_keeps_other_settings() {
++        let mut options = HashMap::from([
++            ("custom-rendezvous-server".into(), "untrusted.invalid".into()),
++            ("relay-server".into(), "untrusted.invalid:21117".into()),
++            ("api-server".into(), "http://untrusted.invalid".into()),
++            ("key".into(), "wrong-key".into()),
++            ("khavaran-unrelated-test-option".into(), "preserved".into()),
++        ]);
++        Config::purify_options(&mut options);
++        assert_eq!(options.len(), 1);
++        assert_eq!(options["khavaran-unrelated-test-option"], "preserved");
++    }
++}
+--- a/src/common.rs
++++ b/src/common.rs
+@@ -767,12 +767,6 @@
+     let (mut a, mut b) = get_rendezvous_server_(ms_timeout);
+     #[cfg(not(any(target_os = "android", target_os = "ios")))]
+     let (mut a, mut b) = get_rendezvous_server_(ms_timeout).await;
+-    #[cfg(windows)]
+-    if let Ok(lic) = crate::platform::get_license_from_exe_name() {
+-        if !lic.host.is_empty() {
+-            a = lic.host;
+-        }
+-    }
+     let mut b: Vec<String> = b
+         .drain(..)
+         .map(|x| socket_client::check_port(x, config::RENDEZVOUS_PORT))
+@@ -1107,19 +1101,8 @@
+ }
+ 
+ pub fn get_custom_rendezvous_server(custom: String) -> String {
+-    #[cfg(windows)]
+-    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
+-        if !lic.host.is_empty() {
+-            return lic.host.clone();
+-        }
+-    }
+-    if !custom.is_empty() {
+-        return custom;
+-    }
+-    if !config::PROD_RENDEZVOUS_SERVER.read().unwrap().is_empty() {
+-        return config::PROD_RENDEZVOUS_SERVER.read().unwrap().clone();
+-    }
+-    "".to_owned()
++    let _ = custom;
++    Config::get_option("custom-rendezvous-server")
+ }
+ 
+ #[inline]
+@@ -1141,25 +1124,8 @@
+ }
+ 
+ fn get_api_server_(api: String, custom: String) -> String {
+-    #[cfg(windows)]
+-    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
+-        if !lic.api.is_empty() {
+-            return lic.api.clone();
+-        }
+-    }
+-    if !api.is_empty() {
+-        return api.to_owned();
+-    }
+-    let s0 = get_custom_rendezvous_server(custom);
+-    if !s0.is_empty() {
+-        let s = crate::increase_port(&s0, -2);
+-        if s == s0 {
+-            return format!("http://{}:{}", s, config::RENDEZVOUS_PORT - 2);
+-        } else {
+-            return format!("http://{}", s);
+-        }
+-    }
+-    "https://admin.rustdesk.com".to_owned()
++    let _ = (api, custom);
++    Config::get_option("api-server")
+ }
+ 
+ #[inline]
+@@ -2007,25 +1973,8 @@
+ }
+ 
+ pub async fn get_key(sync: bool) -> String {
+-    #[cfg(windows)]
+-    if let Ok(lic) = crate::platform::windows::get_license_from_exe_name() {
+-        if !lic.key.is_empty() {
+-            return lic.key;
+-        }
+-    }
+-    #[cfg(target_os = "ios")]
+-    let mut key = Config::get_option("key");
+-    #[cfg(not(target_os = "ios"))]
+-    let mut key = if sync {
+-        Config::get_option("key")
+-    } else {
+-        let mut options = crate::ipc::get_options_async().await;
+-        options.remove("key").unwrap_or_default()
+-    };
+-    if key.is_empty() {
+-        key = config::RS_PUB_KEY.to_owned();
+-    }
+-    key
++    let _ = sync;
++    config::RS_PUB_KEY.to_owned()
+ }
+ 
+ pub fn pk_to_fingerprint(pk: Vec<u8>) -> String {
+@@ -2548,6 +2497,9 @@
+ 
+ #[inline]
+ pub fn get_builtin_option(key: &str) -> String {
++    if key == "hide-server-settings" {
++        return "Y".to_owned();
++    }
+     config::BUILTIN_SETTINGS
+         .read()
+         .unwrap()
+--- a/flutter/lib/mobile/widgets/dialog.dart
++++ b/flutter/lib/mobile/widgets/dialog.dart
+@@ -55,6 +55,7 @@
+ 
+ void showServerSettings(OverlayDialogManager dialogManager,
+     void Function(VoidCallback) setState) async {
++  if (bind.mainGetBuildinOption(key: "hide-server-settings") == "Y") return;
+   Map<String, dynamic> options = {};
+   try {
+     options = jsonDecode(await bind.mainGetOptions());
+@@ -69,8 +70,9 @@
+     ServerConfig serverConfig,
+     OverlayDialogManager dialogManager,
+     void Function(VoidCallback)? upSetState) async {
++  if (bind.mainGetBuildinOption(key: "hide-server-settings") == "Y") return;
+   var isInProgress = false;
+-  const khavaranDefaultServer = '2.181.250.249';
++  const khavaranDefaultServer = 'it-desk.khavaranai.ir';
+   const khavaranDefaultKey =
+       'SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=';
+   final idCtrl = TextEditingController(

@@ -49,7 +49,7 @@ index 6fe1004..2938145 100644
          Config::set_id(&new_id);
          log::info!("id updated from {} to {}", id, new_id);
      }
-@@ -3678,3 +3668,23 @@ mod tests {
+@@ -3678,3 +3668,24 @@ mod tests {
          assert_ne!(non_service_root, non_service_user);
      }
  }

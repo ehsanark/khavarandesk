@@ -7,15 +7,19 @@ permissions:
   push:
     branches:
       - main
+      - codex/khavaran-persian-workspace
     paths:
       - '.github/workflows/flutter-build.yml'
       - '.github/workflows/bridge.yml'
       - '.github/workflows/third-party-RustDeskTempTopMostWindow.yml'
       - '.github/workflows/khavaran.yml'
       - 'build/redesign.py'
+      - 'build/ui/**'
+      - 'build/fonts/**'
       - 'build/bootstrap.py'
       - 'build/khavaran.patch'
       - 'build/identity.patch'
+      - 'build/network.patch'
       - 'build/icon.b64'
       - 'build/windows-installer.nsi'
   pull_request:
@@ -27,9 +31,12 @@ permissions:
       - '.github/workflows/third-party-RustDeskTempTopMostWindow.yml'
       - '.github/workflows/khavaran.yml'
       - 'build/redesign.py'
+      - 'build/ui/**'
+      - 'build/fonts/**'
       - 'build/bootstrap.py'
       - 'build/khavaran.patch'
       - 'build/identity.patch'
+      - 'build/network.patch'
       - 'build/icon.b64'
       - 'build/windows-installer.nsi'
   workflow_dispatch: {}
@@ -100,9 +107,9 @@ jobs:
           Khavaran Desk Windows Client
 
           - Persian-first UI with real RTL layout
-          - visible server status and server setup on the main page
-          - ID Server / Relay Server / API Server / Key configuration
-          - server addresses stay LTR inside the Persian UI
+          - live connection status on the main page
+          - fixed managed ID / Relay / HTTPS API / public key
+          - server addresses and configuration dialog hidden
           - responsive Khavaran Desk desktop dashboard
 
           Unsigned Windows build. Validate on a Windows device before production deployment.
