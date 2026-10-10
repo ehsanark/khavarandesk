@@ -15,6 +15,7 @@ on:
   push:
     branches:
       - main
+      - codex/khavaran-persian-workspace
     paths:
       - ".github/workflows/jetson.yml"
       - ".github/workflows/bridge.yml"
@@ -24,6 +25,7 @@ on:
       - "build/fonts/**"
       - "build/khavaran.patch"
       - "build/identity.patch"
+      - 'build/network.patch'
       - "build/icon.b64"
 
   pull_request:
@@ -286,11 +288,11 @@ jobs:
 
           - ARM64 Debian package
           - Persian-first UI with real RTL layout
-          - visible ID/Relay server setup on the main screen
+          - fixed managed server connection; server settings hidden
           - compatible with the same Khavaran Desk Server used by Windows clients
 
-          Configure ID Server and Relay Server with the public VPS hostname/IP,
-          leave API Server blank for OSS, and use the server public key.
+          Connects automatically to the managed Khavaran server.
+          No manual ID/Relay/API/key configuration is required.
 
           This build is produced for Jetson/ARM64 and should be device-tested
           on the target JetPack/Ubuntu environment before production use.

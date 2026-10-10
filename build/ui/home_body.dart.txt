@@ -4,7 +4,7 @@
       outgoingOnly: bind.isOutgoingOnly(),
       onSettings: settingsAllowed ? DesktopTabPage.onAddSetting : null,
       onSecurity: settingsAllowed ? () => DesktopSettingPage.switch2page(SettingsTabKey.safety) : null,
-      onServer: settingsAllowed ? () => showServerSettings(gFFI.dialogManager, (fn) { if (mounted) setState(fn); }) : null,
+      onServer: null,
       status: const OnlineStatusWidget(),
       remote: buildRightPane(context),
       local: SingleChildScrollView(
@@ -34,24 +34,6 @@
             buildPasswordBoard(context),
             Padding(padding: const EdgeInsets.all(12), child: Text('شناسه و رمز را فقط در اختیار فرد مورد اعتماد قرار دهید.', style: TextStyle(fontSize: 11, height: 1.8, color: Theme.of(context).textTheme.bodySmall?.color))),
           ],
-          const Divider(height: 32),
-          FutureBuilder<String>(future: bind.mainGetOptions(), builder: (context, snapshot) {
-            if (!snapshot.hasData) return const Padding(padding: EdgeInsets.all(16), child: Text('در حال خواندن تنظیمات شبکه…'));
-            ServerConfig config;
-            try { config = ServerConfig.fromOptions(jsonDecode(snapshot.data!) as Map<String, dynamic>); }
-            catch (_) { return const Text('خواندن تنظیمات شبکه ممکن نشد.'); }
-            final host = config.idServer.isEmpty ? '2.181.250.249' : config.idServer;
-            return Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Row(children: [Icon(Icons.dns_outlined, size: 18), SizedBox(width: 8), Text('سرور اتصال', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13))]),
-              const SizedBox(height: 12),
-              SelectableText(host, textDirection: TextDirection.ltr, style: const TextStyle(fontSize: 14)),
-              const SizedBox(height: 5),
-              const Text('وضعیت زنده اتصال در پایین پنجره', style: TextStyle(fontSize: 10, color: Color(0xFF78869B))),
-              const SizedBox(height: 14),
-              OutlinedButton.icon(onPressed: settingsAllowed ? () => showServerSettings(gFFI.dialogManager, (fn) { if (mounted) setState(fn); }) : null,
-                icon: const Icon(Icons.tune_rounded, size: 16), label: const Text('تنظیمات شبکه', style: TextStyle(fontSize: 12))),
-            ]));
-          }),
           Obx(() => buildHelpCards(stateGlobal.updateUrl.value)),
         ]),
       ),
