@@ -21,6 +21,7 @@ on:
       - ".github/workflows/bridge.yml"
       - "build/bootstrap.py"
       - "build/redesign.py"
+      - 'build/repair_client.py'
       - "build/ui/**"
       - "build/fonts/**"
       - "build/khavaran.patch"
@@ -33,6 +34,7 @@ on:
     paths:
       - 'build/bootstrap.py'
       - 'build/redesign.py'
+      - 'build/repair_client.py'
       - 'build/ui/**'
       - 'build/fonts/**'
       - 'build/*.patch'

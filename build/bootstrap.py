@@ -32,3 +32,5 @@ subprocess.run(['python', 'build/redesign.py'], cwd=root, check=True)
 # Enforce the managed network policy after the desktop transformations.
 subprocess.run(["git", "apply", "--check", "build/network.patch"], cwd=root, check=True)
 subprocess.run(["git", "apply", "build/network.patch"], cwd=root, check=True)
+
+subprocess.run(["python", "build/repair_client.py"], cwd=root, check=True)
