@@ -42,14 +42,35 @@ Open these firewall ports:
 - TCP 21115-21119
 - UDP 21116
 
-Current Khavaran client builds are configured for the project server by default:
+Windows and Jetson clients use a compiled, managed connection policy:
 
-- ID Server: `2.181.250.249`
-- Relay Server: `2.181.250.249`
-- API Server: blank
-- Public Key: `SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=`
+| Setting | Fixed value |
+| --- | --- |
+| ID server | `it-desk.khavaranai.ir` (port 21116) |
+| Relay server | `it-desk.khavaranai.ir:21117` |
+| API server | `https://it-desk.khavaranai.ir:8443` |
+| Public key | `SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=` |
 
-These values are compiled into the Windows and Jetson clients as the default rendezvous server/key and are also shown in the Network/Server dialog. Users may override them manually if a different server is required.
+The native core enforces these values over saved settings, configuration imports,
+custom-client settings and Windows executable-name overrides. The desktop home
+screen no longer displays the server address or a network setup shortcut. The
+ID/Relay dialog is hidden and its entry points are guarded. Other settings,
+including security and proxy settings, remain available.
+
+`build/network.patch` applies after the pinned upstream and UI patches in every
+client build. Native regression tests are in the patched `hbb_common` module:
+`cargo test -p hbb_common khavaran_network_tests -- --test-threads=1`.
+
+The API URL requires an actual RustDesk-compatible API service on port 8443;
+a working HTTPS site alone is not sufficient. ID/relay connections still use
+their native protocol and ports. TLS validation is not disabled. Install the
+server certificate and private key only on the HTTPS server, never in the client.
+The supplied public key is the hbbs public key, not a TLS certificate.
+
+Hiding settings is a product policy, not secrecy: a server address and public key
+can be recovered from a binary, source or network traffic. DNS must resolve the
+hostname to the intended server, and hbbs must advertise a reachable relay.
+Existing published installers are unchanged until new builds are produced.
 
 ## Server layout
 
