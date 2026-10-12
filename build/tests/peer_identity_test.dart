@@ -8,7 +8,7 @@ void main() {
       testWidgets('peer identity compact=$compact direction=$dir', (tester) async {
         await tester.pumpWidget(MaterialApp(home: Scaffold(body: Center(
           child: Directionality(textDirection: dir, child: SizedBox(
-            width: 220, height: compact ? 72 : 140,
+            width: 300, height: compact ? 88 : 156,
             child: KhavaranPeerIdentity(id: '2 045 816 920',
               alias: 'رایانه شعبه مرکزی خاوران — واحد پشتیبانی',
               details: 'نام فارسی / Windows', online: true, compact: compact,

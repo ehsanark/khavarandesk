@@ -4,11 +4,11 @@ Name "Khavaran Desk"
 OutFile "KhavaranDesk-Setup-x64.exe"
 InstallDir "$PROGRAMFILES64\KhavaranDesk"
 RequestExecutionLevel admin
-!define MUI_WELCOMEPAGE_TITLE "Khavaran Desk | خاوران دسک"
-!define MUI_WELCOMEPAGE_TEXT "نصب و به‌روزرسانی ابزار دسترسی از راه دور تیم خاوران.$\r$\n$\r$\nبرای ادامه، نشست‌های فعال خاوران دسک بسته خواهند شد."
+!define MUI_WELCOMEPAGE_TITLE "Welcome to Khavaran Desk"
+!define MUI_WELCOMEPAGE_TEXT "Install or update Khavaran Desk for your team.$\r$\n$\r$\nActive Khavaran Desk sessions will close during setup."
 !define MUI_HEADER_TEXT "Khavaran Desk"
-!define MUI_HEADER_SUBTEXT "دسترسی امن تیم خاوران"
-!define MUI_FINISHPAGE_TITLE "خاوران دسک آماده است"
+!define MUI_HEADER_SUBTEXT "Secure remote access for your team"
+!define MUI_FINISHPAGE_TITLE "Khavaran Desk is ready"
 !define MUI_FINISHPAGE_RUN "$INSTDIR\khavarandesk.exe"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_DIRECTORY
@@ -16,7 +16,6 @@ RequestExecutionLevel admin
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
-!insertmacro MUI_LANGUAGE "Farsi"
 !insertmacro MUI_LANGUAGE "English"
 Section "Khavaran Desk"
   SetRegView 64
@@ -51,7 +50,7 @@ Section "Khavaran Desk"
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\KhavaranDesk" "UninstallString" '"$INSTDIR\Uninstall.exe"'
   Goto install_done
 install_failed:
-  MessageBox MB_ICONSTOP "فایل‌های نسخه قبلی بسته نشدند یا نصب کامل نشد. خاوران دسک را ببندید و دوباره نصب کنید."
+  MessageBox MB_ICONSTOP "Setup could not replace the previous version. Close Khavaran Desk and run setup again."
   SetErrorLevel 1
   Abort
 install_done:
