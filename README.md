@@ -49,7 +49,7 @@ Windows and Jetson clients use a compiled, managed connection policy:
 | ID server | `it-desk.khavaranai.ir` (port 21116) |
 | Relay server | `it-desk.khavaranai.ir:21117` |
 | API server | `https://it-desk.khavaranai.ir:8443` |
-| Public key | `SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=` |
+| Public key | `OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk=` |
 
 The native core enforces these values over saved settings, configuration imports,
 custom-client settings and Windows executable-name overrides. The desktop home
@@ -102,3 +102,20 @@ Windows installers are currently unsigned.
 License: AGPL-3.0.
 
 Khavaran Desk retains the relevant RustDesk / Purslane copyright and license notices. The server release bundles use unmodified official RustDesk Server OSS hbbs/hbbr binaries; Khavaran Desk adds packaging, installation scripts, systemd services, verification, and documentation.
+
+## Managed key update and Windows portable package
+
+The managed client public key is now `OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk=`.
+It must match the public key reported by `sudo khavaran-server key` on the running server.
+Changing a client key does not rotate or recover a server private key.
+
+Windows client releases produced after this change contain both the installer and
+`KhavaranDesk-Portable-Windows-x64.zip`. Extract the entire ZIP and run
+`khavarandesk.exe`; keep all DLLs and the data folder beside the executable.
+Ordinary sessions do not need installation. Settings remain in the current user's
+application data directory; unattended access after reboot needs the installed service.
+
+The home-page indicator reports registration with the ID server, not simply whether
+a remote session window is open. If it remains offline after upgrading both clients,
+check the server's actual public key, DNS, TCP 21116 and UDP 21116, and restart an
+older installed client/service so it uses the updated key. Relay traffic uses TCP 21117.

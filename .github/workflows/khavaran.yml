@@ -27,6 +27,7 @@ permissions:
   pull_request:
     branches:
       - main
+      - codex/khavaran-persian-workspace
     paths:
       - '.github/workflows/flutter-build.yml'
       - '.github/workflows/bridge.yml'
@@ -63,6 +64,25 @@ jobs:
           name: rustdesk-unsigned-windows-x86_64
           path: build/windows-bundle
 
+      - name: Package portable Windows client
+        shell: pwsh
+        run: |
+          $bundle = "build/windows-bundle"
+          if (-not (Test-Path "$bundle/rustdesk.exe")) {
+            throw "Portable executable not found"
+          }
+          Copy-Item $bundle "build/KhavaranDesk-Portable-x64" -Recurse
+          Rename-Item "build/KhavaranDesk-Portable-x64/rustdesk.exe" "khavarandesk.exe"
+          Copy-Item "LICENSE" "build/KhavaranDesk-Portable-x64/LICENSE"
+          @'
+          Extract the entire folder, then run khavarandesk.exe.
+          No installation or administrator access is required for ordinary sessions.
+          Settings are stored in the current user's application data directory.
+          Close an older Khavaran Desk installation before testing this build.
+          Unattended access after reboot requires the installed service version.
+          '@ | Set-Content "build/KhavaranDesk-Portable-x64/README.txt" -Encoding utf8
+          Compress-Archive -Path "build/KhavaranDesk-Portable-x64" -DestinationPath "build/KhavaranDesk-Portable-Windows-x64.zip"
+
       - name: Install NSIS
         run: choco install nsis --yes --no-progress
 
@@ -79,7 +99,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: KhavaranDesk-Client-Windows-x64
-          path: build/KhavaranDesk-Client-Windows-x64.exe
+          path: |
+            build/KhavaranDesk-Client-Windows-x64.exe
+            build/KhavaranDesk-Portable-Windows-x64.zip
           if-no-files-found: error
 
   publish:
@@ -105,6 +127,7 @@ jobs:
           set -euo pipefail
           cd dist
           sha256sum KhavaranDesk-Client-Windows-x64.exe > KhavaranDesk-Client-Windows-x64.exe.sha256
+          sha256sum KhavaranDesk-Portable-Windows-x64.zip > KhavaranDesk-Portable-Windows-x64.zip.sha256
           tag="client-windows-build-${BUILD_NUMBER}"
 
           cat > release-notes.md <<'EOF'
@@ -112,6 +135,8 @@ jobs:
 
           - Persian-first UI with real RTL layout
           - live connection status on the main page
+          - updated managed server public key
+          - portable ZIP: extract the full folder and run khavarandesk.exe
           - fixed managed ID / Relay / HTTPS API / public key
           - server addresses and configuration dialog hidden
           - responsive Khavaran Desk desktop dashboard
@@ -123,4 +148,4 @@ jobs:
             gh release create "$tag"               --target "$BUILD_SHA"               --title "Khavaran Desk Client — Windows x64 build ${BUILD_NUMBER}"               --notes-file release-notes.md               --prerelease
           fi
 
-          gh release upload "$tag"             KhavaranDesk-Client-Windows-x64.exe             KhavaranDesk-Client-Windows-x64.exe.sha256             --clobber
+          gh release upload "$tag"             KhavaranDesk-Client-Windows-x64.exe             KhavaranDesk-Client-Windows-x64.exe.sha256             KhavaranDesk-Portable-Windows-x64.zip             KhavaranDesk-Portable-Windows-x64.zip.sha256             --clobber
