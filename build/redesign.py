@@ -91,7 +91,7 @@ dialog_old = """  final idCtrl = TextEditingController(text: serverConfig.idServ
 """
 dialog_new = """  const khavaranDefaultServer = '2.181.250.249';
   const khavaranDefaultKey =
-      'SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=';
+      'OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk=';
   final idCtrl = TextEditingController(
       text: serverConfig.idServer.trim().isEmpty
           ? khavaranDefaultServer

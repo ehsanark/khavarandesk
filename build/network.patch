@@ -17,7 +17,7 @@
  
 -pub const RENDEZVOUS_SERVERS: &[&str] = &["2.181.250.249"];
 +pub const RENDEZVOUS_SERVERS: &[&str] = &["it-desk.khavaranai.ir"];
- pub const RS_PUB_KEY: &str = "SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=";
+ pub const RS_PUB_KEY: &str = "OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk=";
 +
 +// Product policy: configuration files, imports and executable names cannot
 +// override these endpoints. Only public information belongs in this client.
@@ -129,7 +129,7 @@
          assert_eq!(APP_NAME.read().unwrap().as_str(), "KhavaranDesk");
 -        assert_eq!(RENDEZVOUS_SERVERS, &["2.181.250.249"]);
 +        assert_eq!(RENDEZVOUS_SERVERS, &["it-desk.khavaranai.ir"]);
-         assert_eq!(RS_PUB_KEY, "SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=");
+         assert_eq!(RS_PUB_KEY, "OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk=");
      }
  }
 +
@@ -295,5 +295,5 @@
 -  const khavaranDefaultServer = '2.181.250.249';
 +  const khavaranDefaultServer = 'it-desk.khavaranai.ir';
    const khavaranDefaultKey =
-       'SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg=';
+       'OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk=';
    final idCtrl = TextEditingController(

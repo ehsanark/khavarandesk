@@ -8,7 +8,7 @@ SERVICE_USER="khavarandesk"
 SERVICE_GROUP="khavarandesk"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_STATE_DIR="${1:-/var/lib/rustdesk-server}"
-EXPECTED_KEY="SNngVLEdOKKSsMzQuqQwT1EFjftRAVxfHBQSyOss1Zg="
+EXPECTED_KEY="OHMyR1qO57AAZOJj77N5S2xEIPmgeUaNZw9SrKP9Hkk="
 
 if [[ ${EUID} -ne 0 ]]; then
   echo "Please run this installer as root: sudo ./install.sh" >&2
